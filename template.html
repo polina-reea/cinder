@@ -1,0 +1,818 @@
+<title>Кино на двоих</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;800&family=Onest:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: one-column phone app — header, tabs, a stack of film "posters" you swipe, action bar. */
+:root{
+  --bg:#F3F0F6; --surface:#FFFFFF; --ink:#1E1926; --muted:#6C6479; --line:#E3DEEA;
+  --accent:#A8234A; --accent-ink:#FFFFFF; --like:#16875B; --nope:#C9364A; --chip:#ECE7F2;
+  --shadow:0 18px 40px -18px rgba(40,20,60,.35);
+  --display:"Unbounded","Arial Black",system-ui,sans-serif;
+  --body:"Onest",system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#141118; --surface:#201B27; --ink:#F2EEF7; --muted:#A49CB3; --line:#332C3D;
+  --accent:#F25C83; --accent-ink:#1B0D14; --like:#3DCB91; --nope:#FF6B7B; --chip:#2B2434;
+  --shadow:0 18px 40px -18px rgba(0,0,0,.7); color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#141118; --surface:#201B27; --ink:#F2EEF7; --muted:#A49CB3; --line:#332C3D;
+  --accent:#F25C83; --accent-ink:#1B0D14; --like:#3DCB91; --nope:#FF6B7B; --chip:#2B2434;
+  --shadow:0 18px 40px -18px rgba(0,0,0,.7); color-scheme:dark}
+
+[hidden]{display:none!important}
+html,body{height:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.45;overflow:hidden}
+.app{height:100%;max-width:460px;margin:0 auto;display:flex;flex-direction:column;gap:12px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:14px 12px;box-sizing:border-box}
+header{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.brand{font-family:var(--display);font-weight:800;font-size:20px;letter-spacing:-.01em;line-height:1.1;margin:0}
+.brand span{color:var(--accent)}
+.status{font-size:12px;color:var(--muted);text-align:right;line-height:1.3;min-width:0}
+.status b{color:var(--ink);font-weight:600}
+.dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--muted);margin-right:5px;vertical-align:1px}
+.dot.on{background:var(--like)}
+
+.tabs{display:grid;grid-template-columns:repeat(4,1fr);background:var(--chip);border-radius:12px;padding:3px;gap:3px}
+.tabs button{all:unset;cursor:pointer;text-align:center;padding:8px 2px;border-radius:9px;font-weight:600;font-size:13px;color:var(--muted)}
+.tabs button[aria-selected="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.tabs button:focus-visible{outline:2px solid var(--accent)}
+.badge{display:inline-block;min-width:18px;padding:0 5px;border-radius:9px;background:var(--accent);color:var(--accent-ink);font-size:11px;line-height:18px;margin-left:4px;font-variant-numeric:tabular-nums}
+.badge:empty{display:none}
+
+.view{flex:1;min-height:0;display:flex;flex-direction:column;gap:12px}
+.deck{position:relative;flex:1;min-height:0}
+.card{position:absolute;inset:0;background:var(--surface);border-radius:22px;box-shadow:var(--shadow);overflow:hidden;
+  display:flex;flex-direction:column;touch-action:pan-y;user-select:none;-webkit-user-select:none;
+  transition:transform .3s cubic-bezier(.2,.8,.3,1),opacity .3s;will-change:transform}
+.card.top{cursor:grab}
+.card.top:active{cursor:grabbing}
+.card.back1{transform:scale(.955) translateY(12px);opacity:.9}
+.card.back2{transform:scale(.91) translateY(24px);opacity:.6}
+
+.poster{position:relative;flex:0 0 46%;min-height:150px;color:#fff;padding:16px 18px;display:flex;flex-direction:column;justify-content:flex-end;overflow:hidden}
+.poster.has-img{flex-basis:45%}
+.poster.has-img::after,.sh-poster.has-img::after{display:none}
+.pbg{position:absolute;inset:-40px;background-size:cover;background-position:center;filter:blur(26px) brightness(.55) saturate(1.3);pointer-events:none}
+.pimg{position:absolute;left:50%;top:14px;bottom:14px;height:calc(100% - 28px);width:auto;max-width:calc(100% - 28px);transform:translateX(-50%);object-fit:contain;border-radius:8px;box-shadow:0 14px 34px rgba(0,0,0,.5);pointer-events:none;user-select:none;-webkit-user-drag:none}
+.ttl h2{margin:0;font-family:var(--display);font-weight:700;font-size:19px;line-height:1.15;text-wrap:balance;letter-spacing:-.01em}
+.ttl .orig{font-size:12.5px;color:var(--muted);margin-top:3px}
+.ttl.big h2{font-size:23px}
+.poster::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,0) 30%,rgba(0,0,0,.55));pointer-events:none}
+.poster .yr{position:absolute;right:-6px;top:-18px;font-family:var(--display);font-weight:800;font-size:120px;line-height:1;opacity:.13;letter-spacing:-.05em}
+.poster .glyph{position:absolute;left:18px;top:16px;font-size:12px;letter-spacing:.14em;text-transform:uppercase;font-weight:600;opacity:.85;z-index:1}
+.poster h2{position:relative;z-index:1;margin:0;font-family:var(--display);font-weight:700;font-size:clamp(20px,6vw,27px);line-height:1.12;text-wrap:balance;letter-spacing:-.01em}
+.poster .orig{position:relative;z-index:1;font-size:13px;opacity:.85;margin-top:4px}
+.rate{position:absolute;right:14px;top:14px;z-index:2;background:#F5C518;color:#111;font-weight:700;font-size:13px;border-radius:8px;padding:4px 8px;font-variant-numeric:tabular-nums;letter-spacing:.01em}
+.rate small{font-weight:600;font-size:10.5px;margin-right:4px;letter-spacing:.04em}
+
+.info{flex:1;min-height:0;padding:14px 18px 16px;display:flex;flex-direction:column;gap:10px}
+.meta{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+.meta b{color:var(--ink);font-weight:600}
+.genres{display:flex;flex-wrap:wrap;gap:6px}
+.genres span{background:var(--chip);border-radius:20px;padding:3px 10px;font-size:12.5px;font-weight:500}
+.crew{display:flex;flex-direction:column;gap:2px;font-size:13px;line-height:1.35}
+.crew span{color:var(--muted);font-weight:600;margin-right:2px}
+.more-btn{all:unset;cursor:pointer;align-self:flex-start;color:var(--accent);font-weight:600;font-size:13.5px;margin-top:-4px}
+.more-btn:focus-visible,.open-h:focus-visible{outline:2px solid var(--accent)}
+.open-h{cursor:pointer}
+.more-inline{font-size:12px;font-weight:600;color:var(--accent);white-space:nowrap}
+.sheet-wrap{position:fixed;inset:0;z-index:15;background:rgba(20,10,25,.6);display:flex;align-items:flex-end;justify-content:center}
+.sheet{width:100%;max-width:460px;max-height:90%;overflow-y:auto;background:var(--surface);color:var(--ink);border-radius:22px 22px 0 0;box-shadow:0 -10px 40px rgba(0,0,0,.3);animation:up .32s cubic-bezier(.2,.8,.3,1);padding-bottom:env(safe-area-inset-bottom,0px);overscroll-behavior:contain}
+@keyframes up{from{transform:translateY(40%);opacity:.4}to{transform:none;opacity:1}}
+.sh-poster{position:relative;height:230px;color:#fff;padding:16px 18px;display:flex;flex-direction:column;justify-content:flex-end;overflow:hidden}
+.sh-poster.has-img{height:340px}
+.sh-poster::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.25),rgba(0,0,0,0) 30%,rgba(0,0,0,.8));pointer-events:none}
+.sh-poster h2{position:relative;z-index:1;margin:0;font-family:var(--display);font-weight:700;font-size:24px;line-height:1.15;text-wrap:balance}
+.sh-poster .orig{position:relative;z-index:1;font-size:13px;opacity:.85;margin-top:4px}
+.sh-close{all:unset;cursor:pointer;position:absolute;left:14px;top:14px;z-index:2;width:34px;height:34px;border-radius:50%;background:rgba(0,0,0,.45);color:#fff;display:grid;place-items:center;font-size:16px}
+.sh-close:focus-visible{outline:2px solid #fff}
+.sh-info{padding:16px 18px 8px;display:flex;flex-direction:column;gap:10px;padding-left:max(18px,env(safe-area-inset-left,0px));padding-right:max(18px,env(safe-area-inset-right,0px))}
+.sh-lead{margin:0;font-weight:600}
+.sh-about{font-size:15px;line-height:1.55;white-space:pre-line;color:var(--ink);min-height:3em}
+.sh-actions{position:sticky;bottom:0;display:flex;gap:8px;padding:12px 18px calc(12px + env(safe-area-inset-bottom,0px));background:var(--surface);border-top:1px solid var(--line)}
+.sh-actions .btn{flex:1;padding:11px 6px;font-size:14px}
+.desc{margin:0;font-size:14.5px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical}
+.links{margin-top:auto;display:flex;gap:16px;font-size:13px;align-items:center}
+.seen-btn{all:unset;cursor:pointer;margin-left:auto;font-weight:600;color:var(--ink);background:var(--chip);border-radius:20px;padding:5px 12px;font-size:12.5px}
+.seen-btn:focus-visible{outline:2px solid var(--accent)}
+.seen-btn.sm{margin:4px 0 0;padding:4px 10px;font-size:12px}
+.seen-list{display:flex;flex-direction:column;gap:6px}
+.seen-list div{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:14px}
+.seen-list button{all:unset;cursor:pointer;color:var(--accent);font-weight:600;font-size:12.5px;white-space:nowrap}
+.links a{color:var(--accent);font-weight:600;text-decoration:none}
+.links a:hover{text-decoration:underline}
+.ava{border-radius:50%;object-fit:cover;flex:none;display:inline-block;vertical-align:middle}
+.ava.xs{width:18px;height:18px;margin-right:5px;vertical-align:-4px}
+.ava.sm{width:30px;height:30px;border:2px solid var(--like)}
+.ava.lg{width:96px;height:96px;border:3px solid #FF9DB5;box-shadow:0 0 0 6px rgba(255,157,181,.25)}
+.with{display:inline-flex;align-items:center;gap:8px;text-align:left}
+.partner-flag{font-size:12.5px;font-weight:600;color:var(--like)}
+
+.stamp{position:absolute;top:22px;z-index:3;font-family:var(--display);font-weight:800;font-size:28px;padding:4px 12px;border:4px solid;border-radius:10px;opacity:0;pointer-events:none;background:rgba(0,0,0,.15)}
+.stamp.yes{left:18px;color:#5CFFB8;border-color:#5CFFB8;transform:rotate(-12deg)}
+.stamp.no{right:18px;color:#FF8A98;border-color:#FF8A98;transform:rotate(12deg)}
+
+.actions{display:flex;justify-content:center;align-items:center;gap:22px;padding-bottom:2px}
+.btn-round{all:unset;cursor:pointer;display:grid;place-items:center;border-radius:50%;background:var(--surface);box-shadow:var(--shadow);transition:transform .15s}
+.btn-round:active{transform:scale(.92)}
+.btn-round:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.btn-round.big{width:66px;height:66px}
+.btn-round.small{width:46px;height:46px}
+.btn-round svg{display:block}
+.btn-round[disabled]{opacity:.35;cursor:default}
+.hint{text-align:center;font-size:12px;color:var(--muted);margin-top:-4px}
+
+.empty{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:12px;padding:20px;border:2px dashed var(--line);border-radius:22px}
+.empty h3{font-family:var(--display);font-size:18px;margin:0}
+.empty p{margin:0;color:var(--muted);max-width:30ch}
+.btn{all:unset;cursor:pointer;background:var(--accent);color:var(--accent-ink);font-weight:600;padding:10px 16px;border-radius:12px;text-align:center}
+.btn.ghost{background:var(--chip);color:var(--ink)}
+.btn:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+
+.scroll{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:14px;padding-bottom:8px}
+.section-title{font-family:var(--display);font-weight:700;font-size:15px;margin:4px 0 0}
+.muted{color:var(--muted);font-size:13.5px;margin:0}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chips button{all:unset;cursor:pointer;background:var(--chip);border-radius:20px;padding:7px 13px;font-size:13.5px;font-weight:500;border:1.5px solid transparent}
+.chips button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+.chips button:focus-visible{border-color:var(--ink)}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+select{font:inherit;color:var(--ink);background:var(--surface);border:1.5px solid var(--line);border-radius:10px;padding:8px 10px}
+.count{font-size:13.5px;color:var(--muted)}
+.count b{color:var(--ink);font-variant-numeric:tabular-nums}
+
+.match-list{display:flex;flex-direction:column;gap:10px}
+.mrow{display:grid;grid-template-columns:52px 1fr;gap:12px;align-items:center;background:var(--surface);border-radius:14px;padding:10px;border:2px solid transparent}
+.mrow.pick{border-color:var(--accent)}
+.mrow .sw{width:52px;height:68px;border-radius:9px;display:grid;place-items:center;color:#fff;font-family:var(--display);font-weight:800;font-size:13px}
+.mrow h4{margin:0;font-size:15px;line-height:1.25}
+.mrow .m{font-size:12.5px;color:var(--muted);font-variant-numeric:tabular-nums;margin-top:3px}
+.mrow a{color:var(--accent);font-size:12.5px;font-weight:600;text-decoration:none}
+.box{background:var(--surface);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:10px}
+.f{gap:8px}
+.f label{font-size:12.5px;font-weight:600;color:var(--muted);margin-top:4px}
+.f input,.f textarea{font:inherit;font-size:15px;color:var(--ink);background:var(--bg);border:1.5px solid var(--line);border-radius:10px;padding:9px 11px;width:100%;box-sizing:border-box;min-width:0}
+.f input:focus,.f textarea:focus{outline:2px solid var(--accent);outline-offset:0;border-color:transparent}
+.grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.grid3>div{display:flex;flex-direction:column;gap:4px}
+.row.nowrap{flex-wrap:nowrap}
+#a-prev{width:54px;height:80px;object-fit:cover;border-radius:8px}
+.err{margin:0;color:var(--nope);font-weight:600;font-size:14px}
+.link-btn{all:unset;cursor:pointer;color:var(--nope);font-size:12.5px;font-weight:600;margin-top:4px}
+.link-btn:focus-visible{outline:2px solid var(--accent)}
+#a-fill-status a{color:var(--accent);font-weight:600}
+textarea,input[type=text]{font:inherit;font-size:13px;color:var(--ink);background:var(--bg);border:1.5px solid var(--line);border-radius:10px;padding:8px 10px;width:100%;box-sizing:border-box;resize:vertical;font-family:ui-monospace,Menlo,monospace}
+
+.overlay{position:fixed;inset:0;z-index:20;display:grid;place-items:center;background:rgba(20,10,25,.9);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);padding:24px;
+  padding-left:max(24px,env(safe-area-inset-left,0px));padding-right:max(24px,env(safe-area-inset-right,0px))}
+.overlay .inner{text-align:center;color:#fff;display:flex;flex-direction:column;gap:14px;align-items:center;max-width:340px;animation:pop .45s cubic-bezier(.2,1.4,.4,1)}
+.overlay .big{font-family:var(--display);font-weight:800;font-size:40px;line-height:1;color:#FF9DB5}
+.overlay .film{font-family:var(--display);font-weight:700;font-size:20px;line-height:1.2;text-wrap:balance}
+.overlay p{margin:0;opacity:.85}
+@keyframes pop{from{transform:scale(.7);opacity:0}to{transform:none;opacity:1}}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:12px;font-size:13.5px;z-index:30;max-width:calc(100% - 40px)}
+@media (prefers-reduced-motion:reduce){.card,.overlay .inner{transition:none;animation:none}}
+@media (max-height:760px){.desc{-webkit-line-clamp:3}.poster{flex-basis:42%}.poster.has-img{flex-basis:42%}}
+@media (max-height:640px){.desc{-webkit-line-clamp:2}.crew div:nth-child(2){display:none}.poster{flex-basis:40%}.btn-round.big{width:56px;height:56px}}
+</style>
+
+<div class="app">
+  <header>
+    <h1 class="brand">Кино <span>на двоих</span></h1>
+    <div class="status" id="status"><span class="dot"></span>Подключаемся…</div>
+  </header>
+  <nav class="tabs" role="tablist">
+    <button role="tab" id="t-swipe" aria-selected="true">Свайпы</button>
+    <button role="tab" id="t-match" aria-selected="false">Мэтчи<span class="badge" id="mcount"></span></button>
+    <button role="tab" id="t-filter" aria-selected="false">Фильтры</button>
+    <button role="tab" id="t-add" aria-selected="false">＋ Фильм</button>
+  </nav>
+
+  <section class="view" id="v-swipe">
+    <div class="deck" id="deck"></div>
+    <div class="actions">
+      <button class="btn-round small" id="b-undo" aria-label="Вернуть предыдущий" title="Вернуть">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>
+      </button>
+      <button class="btn-round big" id="b-nope" aria-label="Мимо" style="color:var(--nope)">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>
+      </button>
+      <button class="btn-round big" id="b-like" aria-label="Хочу посмотреть" style="color:var(--like)">
+        <svg width="30" height="30" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21s-7.5-4.6-9.6-9.3C.9 8.3 3 4.5 6.7 4.5c2.1 0 3.6 1.1 4.3 2.4h2c.7-1.3 2.2-2.4 4.3-2.4 3.7 0 5.8 3.8 4.3 7.2C19.5 16.4 12 21 12 21z"/></svg>
+      </button>
+      <button class="btn-round small" id="b-random" aria-label="Перемешать оставшиеся" title="Перемешать">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5"/><path d="M4 20 21 3"/><path d="M21 16v5h-5"/><path d="m15 15 6 6"/><path d="M4 4l5 5"/></svg>
+      </button>
+    </div>
+    <div class="hint">Вправо — хочу, влево — мимо · клавиши ← →</div>
+  </section>
+
+  <section class="view" id="v-match" hidden>
+    <div class="scroll" id="match-scroll"></div>
+  </section>
+
+  <section class="view" id="v-add" hidden>
+    <div class="scroll">
+      <div class="box" id="add-off" hidden><b>Добавление сейчас недоступно</b><p class="muted">Свои фильмы можно добавлять, когда приложение открыто как артефакт в Claude и подключено к общей базе (в шапке написано «Вместе с…»).</p></div>
+      <form class="box f" id="add-form" novalidate>
+        <h3 class="section-title" style="margin:0">Добавить фильм</h3>
+        <p class="muted" id="add-note"></p>
+        <label for="a-ru">Название</label>
+        <div class="row nowrap"><input type="text" id="a-ru" maxlength="120" autocomplete="off" placeholder="Например, Амели"><button type="button" class="btn ghost" id="a-fill" hidden style="white-space:nowrap">✨ Заполнить</button></div>
+        <p class="muted" id="a-fill-status" aria-live="polite"></p>
+        <label for="a-orig">Оригинальное название</label>
+        <input type="text" id="a-orig" maxlength="120" autocomplete="off">
+        <label for="a-cast">В ролях</label>
+        <input type="text" id="a-cast" maxlength="160" autocomplete="off" placeholder="Два-три главных актёра">
+        <label for="a-dir">Режиссёр</label>
+        <input type="text" id="a-dir" maxlength="80" autocomplete="off">
+        <div class="grid3">
+          <div><label for="a-year">Год</label><input type="number" id="a-year" inputmode="numeric" min="1890" max="2100"></div>
+          <div><label for="a-min">Минут</label><input type="number" id="a-min" inputmode="numeric" min="1" max="600"></div>
+          <div><label for="a-r">IMDb</label><input type="number" id="a-r" inputmode="decimal" step="0.1" min="7" max="10" placeholder="7.0+"></div>
+        </div>
+        <label>Жанры (до трёх)</label>
+        <div class="chips" id="a-genres"></div>
+        <label for="a-d">Описание</label>
+        <textarea id="a-d" rows="3" maxlength="300" placeholder="О чём фильм, в паре предложений"></textarea>
+        <label>Постер</label>
+        <div class="row"><img id="a-prev" alt="Постер" hidden><label class="btn ghost" for="a-poster" style="margin:0;color:var(--ink)">Выбрать картинку</label><input type="file" id="a-poster" accept="image/*" hidden><button type="button" class="btn ghost" id="a-poster-x" hidden>Убрать</button></div>
+        <p class="err" id="a-err" hidden></p>
+        <button class="btn" type="submit" id="a-submit">Добавить в колоду</button>
+      </form>
+      <h3 class="section-title">Добавленные фильмы</h3>
+      <div class="match-list" id="custom-list"></div>
+    </div>
+  </section>
+
+  <section class="view" id="v-filter" hidden>
+    <div class="scroll">
+      <p class="count" id="fcount"></p>
+      <h3 class="section-title">Жанры</h3>
+      <p class="muted">Ничего не выбрано — показываем все. Выбрано несколько — фильм подходит, если есть хотя бы один.</p>
+      <div class="chips" id="f-genres"></div>
+      <h3 class="section-title">Длительность</h3>
+      <div class="chips" id="f-len"></div>
+      <h3 class="section-title">Годы выпуска</h3>
+      <div class="row">
+        <label for="f-from">с</label><select id="f-from"></select>
+        <label for="f-to">по</label><select id="f-to"></select>
+      </div>
+      <h3 class="section-title">Рейтинг IMDb</h3>
+      <div class="chips" id="f-rate"></div>
+      <h3 class="section-title">Мои свайпы</h3>
+      <p class="muted" id="my-stats"></p>
+      <div class="row">
+        <button class="btn ghost" id="b-renope">Вернуть пропущенные</button>
+        <button class="btn ghost" id="b-reset">Начать заново</button>
+      </div>
+      <h3 class="section-title">Уже смотрели</h3>
+      <div class="seen-list" id="seen-list"></div>
+      <div class="box" id="reset-confirm" hidden>
+        <p style="margin:0">Удалить все ваши лайки и пропуски? Мэтчи тоже пропадут.</p>
+        <div class="row"><button class="btn" id="b-reset-yes">Да, начать заново</button><button class="btn ghost" id="b-reset-no">Отмена</button></div>
+      </div>
+    </div>
+  </section>
+</div>
+<div class="sheet-wrap" id="sheet" hidden><div class="sheet" id="sheet-body" role="dialog" aria-modal="true" aria-labelledby="sh-title"></div></div>
+<div class="overlay" id="overlay" hidden></div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+/*__FILMS__*/
+</script>
+<script>
+(function(){
+"use strict";
+const GENRES={dr:"Драма",co:"Комедия",ro:"Мелодрама",th:"Триллер",cr:"Криминал",my:"Детектив",sf:"Фантастика",fa:"Фэнтези",ad:"Приключения",ac:"Боевик",an:"Мультфильм",fm:"Семейный",ho:"Ужасы",bi:"Биография",hi:"История",wa:"Военный",mu:"Музыка",we:"Вестерн"};
+const HUE={dr:345,co:38,ro:330,th:212,cr:8,my:235,sf:188,fa:272,ad:150,ac:18,an:28,fm:165,ho:285,bi:24,hi:40,wa:95,mu:305,we:30};
+// Фильмы, которые мы уже посмотрели или не хотим (id = позиция в RAW_FILMS) — скрыты из колоды
+const HIDDEN=new Set(["4","5","8","15","22","23","32","36","37","39","40","42","50","51","52","55","56","59","60","61","62","75","81","82","96","99","105","114","115","117","119","134","171","182","183","185","186","187","188","190","191","208","212","215"]);
+const PIDS=new Set(typeof POSTER_IDS==="object"?POSTER_IDS:[]);
+// Кого видит каждый из пары. Владелец артефакта в Claude видит partnerA, второй человек — partnerB.
+// name — имя, with — творительный падеж («Вместе с …»), pron — «у него/неё», ava — путь к фото (или пусто — будут инициалы).
+const PEOPLE={a:{name:"Илья",with:"Ильёй",pron:"него",added:"Добавил Илья",ava:"__AVA_A__"},b:{name:"Полина",with:"Полиной",pron:"неё",added:"Добавила Полина",ava:"__AVA_B__"}};
+let P=PEOPLE.a;
+const avaImg=(cls)=>`<img class="ava ${cls||""}" src="${P.ava}" alt="${P.name}">`;
+const CREW=typeof CAST==="object"?CAST:{};
+const BASE=RAW_FILMS.map((f,i)=>({id:String(i),ru:f[0],orig:f[1],year:f[2],min:f[3],r:f[4],g:f[5].split(" "),d:f[6],dir:(CREW[i]||[])[0]||"",cast:(CREW[i]||[])[1]||""})).filter(f=>!HIDDEN.has(f.id));
+let films=BASE.slice();
+let byId=Object.fromEntries(films.map(f=>[f.id,f]));
+const posterOf=f=>PIDS.has(f.id)?"posters/"+f.id+".jpg":(f.poster||null);
+
+// одинаковый порядок у обоих — так мэтчи находятся быстрее
+function mulberry(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+let seed=20261030;
+function makeOrder(s){const rnd=mulberry(s);const ids=films.map(f=>f.id);for(let i=ids.length-1;i>0;i--){const j=Math.floor(rnd()*(i+1));[ids[i],ids[j]]=[ids[j],ids[i]]}const o={};ids.forEach((id,k)=>o[id]=k);return o}
+let order=makeOrder(seed);
+
+const LS={get(k,d){try{const v=localStorage.getItem("kino2:"+k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem("kino2:"+k,JSON.stringify(v))}catch(e){}}};
+
+const me={likes:new Set(LS.get("likes",[])),nopes:new Set(LS.get("nopes",[]))};
+let others={};            // uid -> Set(likes)
+let otherNames={};        // uid -> name
+let partnerCode=LS.get("pcode",null); // local-mode partner likes
+let mode="connecting";    // connecting | shared | local
+let uid=null, dbRef=null, userCap=null;
+let history=[];
+let seenMatches=new Set(LS.get("seen",[]));
+const LEN=[[0,"Любая"],[95,"до 1,5 ч"],[120,"до 2 ч"],[150,"до 2,5 ч"]];
+const RATE=[[7,"7+"],[7.5,"7,5+"],[8,"8+"],[8.5,"8,5+"]];
+let F=Object.assign({genres:[],len:0,from:0,to:9999,rate:7},LS.get("filters",{}));
+
+const $=s=>document.querySelector(s);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const fmtLen=m=>`${Math.floor(m/60)} ч ${String(m%60).padStart(2,"0")} мин`;
+const fmtR=r=>r.toFixed(1).replace(".",",");
+function posterBg(f){const ps=posterOf(f);if(ps)return `#0d0b10 url(${ps}) center 22%/cover no-repeat`;const h=HUE[f.g[0]]??340;const h2=(h+(f.g[1]?((HUE[f.g[1]]-h)*.5):35)+360)%360;const n=parseInt(f.id)*37%40;
+  return `radial-gradient(120% 90% at ${20+n}% 0%,hsl(${h2} 70% 52% / .55),transparent 60%),linear-gradient(160deg,hsl(${h} 55% 30%),hsl(${(h+25)%360} 60% 16%))`}
+function imdbUrl(f){return "https://www.imdb.com/find/?q="+encodeURIComponent((f.orig||f.ru)+" "+f.year)}
+function trailerUrl(f){return "https://www.youtube.com/results?search_query="+encodeURIComponent(f.ru+" "+f.year+" трейлер")}
+
+function partnerLikes(){
+  const s=new Set();
+  if(mode==="local"){(partnerCode||[]).forEach(id=>s.add(id))}
+  else Object.values(others).forEach(set=>set.forEach(id=>s.add(id)));
+  return s;
+}
+function likedBy(id){ // names of others who liked
+  if(mode==="local") return (partnerCode||[]).includes(id)?[P.name]:[];
+  return Object.entries(others).some(([u,s])=>s.has(id))?[P.name]:[];
+}
+let watched=new Set(LS.get("watched",[]));
+function passes(f){
+  if(watched.has(f.id)) return false;
+  if(f.r<F.rate) return false;
+  if(F.len && f.min>F.len) return false;
+  if(f.year<F.from||f.year>F.to) return false;
+  if(F.genres.length && !f.g.some(g=>F.genres.includes(g))) return false;
+  return true;
+}
+function matches(){const p=partnerLikes();return films.filter(f=>!watched.has(f.id)&&me.likes.has(f.id)&&p.has(f.id)).sort((a,b)=>b.r-a.r)}
+
+// ---------- deck ----------
+let deck=[];
+function buildDeck(){
+  const keep=deck[0];
+  const p=partnerLikes();
+  const c=films.filter(f=>passes(f)&&!me.likes.has(f.id)&&!me.nopes.has(f.id));
+  c.sort((a,b)=>(p.has(b.id)-p.has(a.id))||((order[a.id]??-1)-(order[b.id]??-1)));
+  deck=c.map(f=>f.id);
+  if(keep && deck.includes(keep)){deck=[keep,...deck.filter(x=>x!==keep)]}
+}
+let busy=false;
+function renderDeck(){
+  const el=$("#deck");el.textContent="";
+  if(!deck.length){
+    const e=document.createElement("div");e.className="empty";
+    const any=films.some(passes);
+    e.innerHTML=any?`<h3>Фильмы закончились</h3><p>Вы просмотрели всё, что подходит под фильтры. Загляните в мэтчи или расширьте фильтры.</p><div class="row" style="justify-content:center"><button class="btn" data-go="match">К мэтчам</button><button class="btn ghost" data-go="filter">Фильтры</button></div>`
+      :`<h3>Под фильтры ничего не подходит</h3><p>Попробуйте убрать часть жанров или увеличить длительность.</p><button class="btn" data-go="filter">Изменить фильтры</button>`;
+    e.querySelectorAll("[data-go]").forEach(b=>b.onclick=()=>tab(b.dataset.go));
+    el.appendChild(e);updateButtons();return;
+  }
+  const p=partnerLikes();
+  deck.slice(0,3).reverse().forEach((id,ri,arr)=>{
+    const f=byId[id];const pos=arr.length-1-ri;
+    const c=document.createElement("article");
+    c.className="card "+(pos===0?"top":pos===1?"back1":"back2");
+    c.setAttribute("aria-label",f.ru);
+    const names=likedBy(id);
+    const ps=posterOf(f);
+    const ttl=`<h2>${esc(f.ru)}</h2>${f.orig&&f.orig!==f.ru?`<div class="orig">${esc(f.orig)}</div>`:""}`;
+    c.innerHTML=`<div class="poster${ps?" has-img":""}" style="background:${ps?"#0d0b10":posterBg(f)}">
+      ${ps?`<div class="pbg" style="background-image:url(${ps})"></div><img class="pimg" src="${ps}" alt="" draggable="false">`:`<div class="yr">${f.year}</div><div class="glyph">${esc(GENRES[f.g[0]])}</div>${ttl}`}
+      <div class="rate"><small>IMDb</small>${fmtR(f.r)}</div>
+      <div class="stamp yes">ХОЧУ</div><div class="stamp no">МИМО</div></div>
+      <div class="info">${ps?`<div class="ttl">${ttl}</div>`:""}
+        <div class="meta"><span><b>${f.year}</b></span><span>${fmtLen(f.min)}</span>${names.length&&pos===0?`<span class="partner-flag">${avaImg("xs")}${P.name} уже хочет ♥</span>`:""}${f.custom?`<span class="partner-flag" style="color:var(--accent)">${f.by===uid?"Вы добавили":esc(P.added)}</span>`:""}</div>
+        <div class="genres">${f.g.map(g=>`<span>${GENRES[g]}</span>`).join("")}</div>
+        ${f.dir||f.cast?`<div class="crew">${f.cast?`<div><span>В ролях</span> ${esc(f.cast)}</div>`:""}${f.dir?`<div><span>Режиссёр</span> ${esc(f.dir)}</div>`:""}</div>`:""}
+        <p class="desc">${esc(f.d)}</p>
+        <button type="button" class="more-btn" data-more="1">Подробнее ▾</button>
+        <div class="links"><a href="${imdbUrl(f)}" target="_blank" rel="noopener">IMDb ↗</a><a href="${trailerUrl(f)}" target="_blank" rel="noopener">Трейлер ↗</a><button type="button" class="seen-btn" data-seen="1">Уже смотрели</button></div>
+      </div>`;
+    if(pos===0){bindDrag(c,id);c.querySelector("[data-seen]").onclick=()=>flySeen(c,id);c.querySelector("[data-more]").onclick=()=>openSheet(id,false)}
+    el.appendChild(c);
+  });
+  updateButtons();
+}
+function updateButtons(){
+  $("#b-undo").disabled=!history.length;
+  $("#b-like").disabled=$("#b-nope").disabled=!deck.length||busy;
+}
+function setStamp(c,dx){const y=c.querySelector(".stamp.yes"),n=c.querySelector(".stamp.no");y.style.opacity=Math.max(0,Math.min(1,dx/90));n.style.opacity=Math.max(0,Math.min(1,-dx/90))}
+function bindDrag(c,id){
+  let sx=0,sy=0,dx=0,dy=0,on=false;
+  c.addEventListener("pointerdown",e=>{if(busy||e.target.closest("a,button"))return;on=true;sx=e.clientX;sy=e.clientY;dx=dy=0;c.setPointerCapture(e.pointerId);c.style.transition="none"});
+  c.addEventListener("pointermove",e=>{if(!on)return;dx=e.clientX-sx;dy=e.clientY-sy;c.style.transform=`translate(${dx}px,${dy*.25}px) rotate(${dx/16}deg)`;setStamp(c,dx)});
+  const end=()=>{if(!on)return;on=false;c.style.transition="";if(Math.abs(dx)>90){fly(c,id,dx>0?"like":"nope")}else{c.style.transform="";setStamp(c,0)}};
+  c.addEventListener("pointerup",end);c.addEventListener("pointercancel",end);
+}
+function fly(c,id,kind){
+  if(busy)return;busy=true;updateButtons();
+  const dir=kind==="like"?1:-1;
+  setStamp(c,dir*100);
+  c.style.transition="transform .32s ease-in,opacity .32s";
+  c.style.transform=`translate(${dir*140}%,-20px) rotate(${dir*22}deg)`;c.style.opacity="0";
+  setTimeout(()=>{busy=false;decide(id,kind)},260);
+}
+function swipeTop(kind){
+  if(busy||!deck.length)return;
+  const c=$("#deck .card.top");if(c)fly(c,deck[0],kind);
+}
+function decide(id,kind){
+  (kind==="like"?me.likes:me.nopes).add(id);
+  history.push({id,kind});if(history.length>50)history.shift();
+  deck=deck.filter(x=>x!==id);
+  save();
+  renderDeck();renderMatchCount();
+  if(kind==="like" && partnerLikes().has(id)) celebrate([id]);
+}
+function undo(){
+  const h=history.pop();if(!h)return;
+  if(h.kind==="watched"){unwatch(h.id);deck=[h.id,...deck.filter(x=>x!==h.id)];renderDeck();return}
+  me.likes.delete(h.id);me.nopes.delete(h.id);
+  seenMatches.delete(h.id);LS.set("seen",[...seenMatches]);
+  deck=[h.id,...deck.filter(x=>x!==h.id)];
+  save();renderDeck();renderMatchCount();
+}
+
+// ---------- подробная карточка ----------
+let dbAll=null, sheetId=null, sheetCtl=null;
+const aboutCache={};
+function openSheet(id,fromMatch){
+  const f=byId[id];if(!f)return;
+  sheetId=id;
+  const ps=posterOf(f);
+  const sh=$("#sheet-body");
+  const shT=`<h2 id="sh-title">${esc(f.ru)}</h2>${f.orig&&f.orig!==f.ru?`<div class="orig">${esc(f.orig)}</div>`:""}`;
+  sh.innerHTML=`<div class="sh-poster${ps?" has-img":""}" style="background:${ps?"#0d0b10":posterBg(f)}">
+      ${ps?`<div class="pbg" style="background-image:url(${ps})"></div><img class="pimg" src="${ps}" alt="" draggable="false">`:shT}
+      <button type="button" class="sh-close" id="sh-close" aria-label="Закрыть">✕</button>
+      <div class="rate"><small>IMDb</small>${fmtR(f.r)}</div>
+    </div>
+    <div class="sh-info">${ps?`<div class="ttl big">${shT}</div>`:""}
+      <div class="meta"><span><b>${f.year}</b></span><span>${fmtLen(f.min)}</span>${likedBy(id).length?`<span class="partner-flag">${avaImg("xs")}${P.name} уже хочет ♥</span>`:""}</div>
+      <div class="genres">${f.g.map(g=>`<span>${GENRES[g]}</span>`).join("")}</div>
+      ${f.dir||f.cast?`<div class="crew">${f.cast?`<div><span>В ролях</span> ${esc(f.cast)}</div>`:""}${f.dir?`<div><span>Режиссёр</span> ${esc(f.dir)}</div>`:""}</div>`:""}
+      <h3 class="section-title">О фильме</h3>
+      <p class="sh-lead">${esc(f.d)}</p>
+      <div class="sh-about" id="sh-about" aria-live="polite"></div>
+      <div class="links"><a href="${imdbUrl(f)}" target="_blank" rel="noopener">IMDb ↗</a><a href="${trailerUrl(f)}" target="_blank" rel="noopener">Трейлер ↗</a></div>
+    </div>
+    <div class="sh-actions">${fromMatch
+      ?`<button type="button" class="btn ghost" data-act="seen">Посмотрели ✓</button><button type="button" class="btn" data-act="close">Закрыть</button>`
+      :`<button type="button" class="btn ghost" data-act="nope" style="color:var(--nope)">✕ Мимо</button><button type="button" class="btn ghost" data-act="seen">Уже смотрели</button><button type="button" class="btn" data-act="like">♥ Хочу</button>`}</div>`;
+  $("#sheet").hidden=false;
+  sh.scrollTop=0;
+  $("#sh-close").onclick=closeSheet;
+  sh.querySelectorAll("[data-act]").forEach(b=>b.onclick=()=>{
+    const a=b.dataset.act;closeSheet();
+    if(a==="close")return;
+    if(a==="seen"){if(fromMatch)markWatched(id,false);else{const c=$("#deck .card.top");if(c&&deck[0]===id)flySeen(c,id);else markWatched(id,true)}return}
+    if(deck[0]===id)swipeTop(a);else decide(id,a);
+  });
+  $("#sh-close").focus();
+  loadAbout(f);
+}
+function closeSheet(){
+  $("#sheet").hidden=true;sheetId=null;
+  if(sheetCtl){sheetCtl.abort();sheetCtl=null}
+}
+async function loadAbout(f){
+  const box=$("#sh-about");
+  const show=tx=>{if(sheetId===f.id)box.textContent=tx};
+  if(aboutCache[f.id]){show(aboutCache[f.id]);return}
+  show("Загружаем подробное описание…");
+  if(dbAll){
+    try{const s=await dbAll.doc("about/"+f.id).get();
+      const tx=s.exists&&s.data()?s.data().text:null;
+      if(typeof tx==="string"&&tx.trim()){aboutCache[f.id]=tx.slice(0,3000);show(aboutCache[f.id]);return}
+    }catch(e){}
+  }
+  if(sheetId!==f.id)return;
+  if(!sampleFn){show("Подробное описание сейчас недоступно. Загляните на IMDb или посмотрите трейлер.");return}
+  show("Claude пишет подробное описание…");
+  const ctl=new AbortController();sheetCtl=ctl;
+  const prompt=`Напиши подробное описание фильма для приложения, где пара выбирает, что посмотреть вечером.
+Фильм: «${f.ru}»${f.orig&&f.orig!==f.ru?` (${f.orig})`:""}, ${f.year} год${f.dir?`, режиссёр ${f.dir}`:""}${f.cast?`, в ролях ${f.cast}`:""}.
+Коротко о нём: ${f.d}
+Требования: по-русски, 5–7 предложений, один или два абзаца. Расскажи завязку и что ждёт героев, но без спойлеров поворотов и финала. Опиши настроение и стиль (смешной, напряжённый, медленный, красивый и т. п.) и кому фильм скорее понравится. Если фильм тяжёлый, жестокий или откровенный, честно предупреди об этом одной фразой. Без заголовков, списков и markdown — только текст.`;
+  try{
+    const {text}=await sampleFn(prompt,{signal:ctl.signal,onText:({text})=>show(text)});
+    const tx=text.trim().slice(0,3000);
+    aboutCache[f.id]=tx;show(tx);
+    if(dbAll&&mode==="shared")dbAll.doc("about/"+f.id).set({text:tx,t:Date.now()}).catch(()=>{});
+  }catch(e){
+    const c=e&&e.code;
+    if(c==="cancelled")return;
+    if(["not_granted","sampling_disabled","not_declared","capability_disabled","capability_removed"].includes(c)){sampleFn=null;show("Подробное описание недоступно без доступа к Claude. Загляните на IMDb или посмотрите трейлер.")}
+    else if(c==="rate_limited")show("Слишком много запросов подряд. Попробуйте открыть описание через минуту.");
+    else show("Не получилось загрузить описание. Закройте и откройте карточку ещё раз.");
+  }finally{if(sheetCtl===ctl)sheetCtl=null}
+}
+$("#sheet").addEventListener("click",e=>{if(e.target.id==="sheet")closeSheet()});
+
+// ---------- уже смотрели ----------
+function flySeen(c,id){
+  if(busy)return;busy=true;updateButtons();
+  c.style.transition="transform .32s ease-in,opacity .32s";
+  c.style.transform="translateY(-110%) scale(.9)";c.style.opacity="0";
+  setTimeout(()=>{busy=false;markWatched(id,true)},260);
+}
+function markWatched(id,fromDeck){
+  const f=byId[id];
+  watched.add(id);LS.set("watched",[...watched]);
+  if(fromDeck)history.push({id,kind:"watched"});
+  deck=deck.filter(x=>x!==id);
+  if(mode==="shared"&&watchedCol)watchedCol.doc(id).set({by:uid,t:Date.now()}).catch(()=>toast("Не получилось сохранить отметку"));
+  renderDeck();renderMatchCount();
+  if(!$("#v-match").hidden)renderMatches();
+  toast(`«${f?f.ru:"Фильм"}» убран у вас обоих${fromDeck?" · вернуть можно кнопкой ↶":""}`);
+}
+function unwatch(id){
+  watched.delete(id);LS.set("watched",[...watched]);
+  if(mode==="shared"&&watchedCol)watchedCol.doc(id).delete().catch(()=>{});
+  buildDeck();renderDeck();renderMatchCount();
+  if(!$("#v-filter").hidden)renderFilters();
+}
+
+// ---------- persistence ----------
+let writing=false,dirty=false;
+function save(){
+  LS.set("likes",[...me.likes]);LS.set("nopes",[...me.nopes]);
+  if(mode==="shared"&&dbRef){dirty=true;flush()}
+}
+async function flush(){
+  if(writing||!dirty)return;writing=true;dirty=false;
+  try{await dbRef.set({likes:[...me.likes],nopes:[...me.nopes],t:Date.now()})}
+  catch(e){
+    if(e&&(e.code==="invalid_argument"||e.code==="not_granted"||e.code==="revoked")){goLocal("no-write")}
+    else if(e&&e.code==="unavailable"){dirty=true;setTimeout(()=>{writing=false;flush()},1500+Math.random()*1500);return}
+    else toast("Не получилось сохранить. Свайпы сохранены на этом устройстве.");
+  }
+  writing=false;if(dirty)flush();
+}
+
+// ---------- matches ----------
+function renderMatchCount(){const n=matches().length;$("#mcount").textContent=n?String(n):""}
+let picked=null;
+function renderMatches(){
+  const box=$("#match-scroll");const m=matches();const p=partnerLikes();
+  let h="";
+  if(m.length){
+    h+=`<div class="row" style="justify-content:space-between"><h3 class="section-title" style="margin:0">Вы оба хотите: ${m.length}</h3><button class="btn" id="b-pick">Выбрать за нас</button></div>`;
+    h+=`<div class="match-list">`+m.map(f=>`<div class="mrow${picked===f.id?" pick":""}" id="m-${f.id}"><div class="sw" style="background:${posterBg(f)}">${posterOf(f)?"":fmtR(f.r)}</div><div style="min-width:0"><h4 class="open-h" data-open="${esc(f.id)}" role="button" tabindex="0">${esc(f.ru)} <span class="more-inline">подробнее</span></h4><div class="m">${f.year} · ${fmtLen(f.min)} · ${f.g.map(g=>GENRES[g]).join(", ")}</div><a href="${trailerUrl(f)}" target="_blank" rel="noopener">Трейлер ↗</a><br><button type="button" class="seen-btn sm" data-mseen="${esc(f.id)}">Посмотрели ✓</button></div></div>`).join("")+`</div>`;
+  }else{
+    h+=`<div class="box"><h3 class="section-title" style="margin:0">Пока без мэтчей</h3><p class="muted">Мэтч — это фильм, который лайкнули вы оба. ${mode==="local"?"Обменяйтесь кодами ниже, чтобы их увидеть.":p.size?"Фильмы, которые уже лайкнул партнёр, показываются вам первыми — свайпайте дальше.":"Как только второй человек начнёт свайпать, совпадения появятся здесь."}</p></div>`;
+  }
+  h+=`<h3 class="section-title">Мои лайки: ${me.likes.size}</h3>`;
+  if(mode==="local"){
+    h+=`<div class="box"><b>Обмен кодами</b><p class="muted">Общая база недоступна, поэтому мэтчи считаем через коды. Отправьте партнёру свой код, а его код вставьте сюда.</p>
+      <label class="muted" for="my-code">Мой код</label><textarea id="my-code" rows="2" readonly>${esc(encodeCode())}</textarea>
+      <button class="btn ghost" id="b-copy">Скопировать мой код</button>
+      <label class="muted" for="p-code">Код партнёра</label><textarea id="p-code" rows="2" placeholder="KN:…">${partnerCode?esc(encodeCode(partnerCode)):""}</textarea>
+      <button class="btn" id="b-apply">Найти мэтчи</button></div>`;
+  }
+  box.innerHTML=h;
+  box.querySelectorAll("[data-open]").forEach(h=>{h.onclick=()=>openSheet(h.dataset.open,true);h.onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();openSheet(h.dataset.open,true)}}});
+  box.querySelectorAll("[data-mseen]").forEach(b=>b.onclick=()=>markWatched(b.dataset.mseen,false));
+  const bp=$("#b-pick");if(bp)bp.onclick=()=>{const m=matches();picked=m[Math.floor(Math.random()*m.length)].id;renderMatches();const el=$("#m-"+picked);el&&el.scrollIntoView({block:"center",behavior:"smooth"});celebrate([picked],"pick")};
+  const bc=$("#b-copy");if(bc)bc.onclick=()=>{const t=$("#my-code");const done=()=>toast("Код скопирован");try{navigator.clipboard.writeText(t.value).then(done,()=>{t.select();toast("Выделили код — скопируйте его")})}catch(e){t.select();toast("Выделили код — скопируйте его")}};
+  const ba=$("#b-apply");if(ba)ba.onclick=()=>{const ids=decodeCode($("#p-code").value);if(!ids){toast("Не похоже на код. Он начинается с KN:");return}partnerCode=ids;LS.set("pcode",ids);buildDeck();renderDeck();renderMatchCount();renderMatches();const m=matches();toast(m.length?`Мэтчей: ${m.length}`:"Совпадений пока нет")};
+}
+function encodeCode(ids){return "KN:"+(ids||[...me.likes]).filter(x=>/^\d+$/.test(x)).map(x=>(+x).toString(36)).join(".")}
+function decodeCode(s){s=(s||"").trim();if(!s.startsWith("KN:"))return null;const ids=s.slice(3).split(".").filter(Boolean).map(x=>String(parseInt(x,36))).filter(id=>byId[id]);return ids}
+
+function celebrate(ids,kind){
+  const ov=$("#overlay");const f=byId[ids[0]];
+  const who=kind==="pick"?"":likedBy(f.id).join(", ");
+  ov.innerHTML=`<div class="inner">${kind==="pick"?`<div class="big">Смотрим</div>`:`${avaImg("lg")}<div class="big">Мэтч!</div><p>Вы с ${P.with} оба хотите посмотреть</p>`}
+    <div class="film">${esc(f.ru)}</div><p>${f.year} · ${fmtLen(f.min)} · IMDb ${fmtR(f.r)}</p>
+    <div class="row" style="justify-content:center"><button class="btn" id="ov-close">${kind==="pick"?"Отлично":"Свайпать дальше"}</button>${kind==="pick"?"":`<button class="btn ghost" id="ov-matches">Все мэтчи</button>`}</div></div>`;
+  ov.hidden=false;
+  ids.forEach(id=>seenMatches.add(id));LS.set("seen",[...seenMatches]);
+  $("#ov-close").onclick=()=>ov.hidden=true;
+  const om=$("#ov-matches");if(om)om.onclick=()=>{ov.hidden=true;tab("match")};
+  $("#ov-close").focus();
+}
+let toastT;function toast(t){const el=$("#toast");el.textContent=t;el.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>el.hidden=true,2600)}
+
+// ---------- filters ----------
+function renderFilters(){
+  const gs=$("#f-genres");gs.innerHTML=Object.entries(GENRES).map(([k,v])=>`<button data-g="${k}" aria-pressed="${F.genres.includes(k)}">${v}</button>`).join("");
+  gs.querySelectorAll("button").forEach(b=>b.onclick=()=>{const g=b.dataset.g;F.genres=F.genres.includes(g)?F.genres.filter(x=>x!==g):[...F.genres,g];applyFilters()});
+  const ls=$("#f-len");ls.innerHTML=LEN.map(([v,t])=>`<button data-v="${v}" aria-pressed="${F.len===v}">${t}</button>`).join("");
+  ls.querySelectorAll("button").forEach(b=>b.onclick=()=>{F.len=+b.dataset.v;applyFilters()});
+  const rs=$("#f-rate");rs.innerHTML=RATE.map(([v,t])=>`<button data-v="${v}" aria-pressed="${F.rate===v}">${t}</button>`).join("");
+  rs.querySelectorAll("button").forEach(b=>b.onclick=()=>{F.rate=+b.dataset.v;applyFilters()});
+  const yrs=[0,1950,1960,1970,1980,1990,2000,2010,2015,2020];
+  $("#f-from").innerHTML=yrs.map(y=>`<option value="${y}"${F.from===y?" selected":""}>${y||"любого года"}</option>`).join("");
+  const tos=[9999,1979,1989,1999,2009,2014,2019];
+  $("#f-to").innerHTML=tos.map(y=>`<option value="${y}"${F.to===y?" selected":""}>${y===9999?"сегодня":y}</option>`).join("");
+  const n=films.filter(passes).length;const left=films.filter(f=>passes(f)&&!me.likes.has(f.id)&&!me.nopes.has(f.id)).length;
+  $("#fcount").innerHTML=`Подходит <b>${n}</b> фильмов, из них ещё не просмотрено <b>${left}</b>`;
+  $("#my-stats").textContent=`Лайков: ${me.likes.size}, пропущено: ${me.nopes.size}.`;
+  const sl=$("#seen-list");const ws=[...watched].map(id=>byId[id]).filter(Boolean);
+  sl.innerHTML=ws.length?ws.map(f=>`<div><span>${esc(f.ru)} <span class="muted">${f.year}</span></span><button type="button" data-unseen="${esc(f.id)}">Вернуть в колоду</button></div>`).join(""):`<p class="muted">Пока пусто. Нажмите «Уже смотрели» на карточке, и фильм пропадёт у вас обоих.</p>`;
+  sl.querySelectorAll("[data-unseen]").forEach(b=>b.onclick=()=>{unwatch(b.dataset.unseen);toast("Вернули в колоду")});
+}
+$("#f-from").onchange=e=>{F.from=+e.target.value;applyFilters()};
+$("#f-to").onchange=e=>{F.to=+e.target.value;applyFilters()};
+function applyFilters(){LS.set("filters",F);deck=[];buildDeck();renderFilters();renderDeck()}
+$("#b-renope").onclick=()=>{const n=me.nopes.size;me.nopes.clear();history=history.filter(h=>h.kind!=="nope");save();deck=[];buildDeck();renderFilters();renderDeck();toast(n?`Вернули ${n} фильмов в колоду`:"Пропущенных нет")};
+$("#b-reset").onclick=()=>{$("#reset-confirm").hidden=false};
+$("#b-reset-no").onclick=()=>{$("#reset-confirm").hidden=true};
+$("#b-reset-yes").onclick=()=>{me.likes.clear();me.nopes.clear();history=[];seenMatches.clear();LS.set("seen",[]);save();deck=[];buildDeck();$("#reset-confirm").hidden=true;renderFilters();renderDeck();renderMatchCount();toast("Начали заново")};
+
+// ---------- добавление своих фильмов ----------
+let watchedCol=null;
+let customCol=null, sampleFn=null, customFilms=[], newPoster=null, aGenres=[];
+function normCustom(id,b){
+  if(!b||typeof b.ru!=="string"||!b.ru.trim())return null;
+  const num=(v,lo,hi)=>{v=Number(v);return isFinite(v)&&v>=lo&&v<=hi?v:null};
+  const year=num(b.year,1890,2100),min=num(b.min,1,600),r=num(b.r,0,10);
+  if(year===null||min===null||r===null)return null;
+  const g=(Array.isArray(b.g)?b.g:[]).filter(x=>GENRES[x]).slice(0,3);
+  return {id,ru:b.ru.slice(0,120),orig:typeof b.orig==="string"?b.orig.slice(0,120):"",year:Math.round(year),min:Math.round(min),r:Math.round(r*10)/10,
+    g:g.length?g:["dr"],d:typeof b.d==="string"?b.d.slice(0,400):"",dir:typeof b.dir==="string"?b.dir.slice(0,80):"",cast:typeof b.cast==="string"?b.cast.slice(0,160):"",
+    poster:typeof b.poster==="string"&&b.poster.startsWith("data:image/")&&b.poster.length<300000?b.poster:null,
+    by:typeof b.by==="string"?b.by:null,t:num(b.t,0,1e14)||0,custom:true};
+}
+function applyCustom(list){customFilms=list;films=BASE.concat(list);byId=Object.fromEntries(films.map(f=>[f.id,f]))}
+function renderAGenres(){
+  const gs=$("#a-genres");
+  gs.innerHTML=Object.entries(GENRES).map(([k,v])=>`<button type="button" data-g="${k}" aria-pressed="${aGenres.includes(k)}">${v}</button>`).join("");
+  gs.querySelectorAll("button").forEach(b=>b.onclick=()=>{const g=b.dataset.g;aGenres=aGenres.includes(g)?aGenres.filter(x=>x!==g):aGenres.length<3?[...aGenres,g]:aGenres;renderAGenres()});
+}
+function renderAdd(){
+  const off=mode!=="shared"||!customCol;
+  $("#add-off").hidden=!off;$("#add-form").hidden=off;
+  $("#a-fill").hidden=!sampleFn;
+  $("#add-note").textContent=`Фильм появится в колоде у вас обоих и сразу попадёт в ваши лайки, так что ${P.name} увидит его одним из первых.`;
+  renderAGenres();
+  const box=$("#custom-list");
+  if(!customFilms.length){box.innerHTML=`<p class="muted">Пока ничего не добавлено.</p>`;return}
+  box.innerHTML=customFilms.slice().sort((a,b)=>b.t-a.t).map(f=>`<div class="mrow"><div class="sw" style="background:${posterBg(f)}">${posterOf(f)?"":fmtR(f.r)}</div><div style="min-width:0"><h4>${esc(f.ru)}</h4><div class="m">${f.year} · ${fmtLen(f.min)} · IMDb ${fmtR(f.r)}</div><div class="m">${f.by===uid?"Добавлено вами":esc(P.added)}</div><button type="button" class="link-btn" data-del="${esc(f.id)}">Удалить</button></div></div>`).join("");
+  box.querySelectorAll("[data-del]").forEach(b=>b.onclick=async()=>{
+    if(b.dataset.armed!=="1"){b.dataset.armed="1";b.textContent="Точно удалить? Нажмите ещё раз";return}
+    b.disabled=true;
+    try{await customCol.doc(b.dataset.del).delete();toast("Удалили")}catch(e){toast("Не получилось удалить");b.disabled=false}
+  });
+}
+function shrink(file){return new Promise((res,rej)=>{const url=URL.createObjectURL(file);const img=new Image();
+  img.onload=()=>{const w=Math.min(360,img.naturalWidth),h=Math.round(img.naturalHeight*w/img.naturalWidth);const c=document.createElement("canvas");c.width=w;c.height=h;c.getContext("2d").drawImage(img,0,0,w,h);URL.revokeObjectURL(url);res(c.toDataURL("image/jpeg",.72))};
+  img.onerror=()=>{URL.revokeObjectURL(url);rej()};img.src=url})}
+$("#a-poster").onchange=async e=>{const file=e.target.files[0];if(!file)return;
+  try{newPoster=await shrink(file);$("#a-prev").src=newPoster;$("#a-prev").hidden=false;$("#a-poster-x").hidden=false}catch(err){toast("Не удалось открыть картинку")}
+  e.target.value=""};
+$("#a-poster-x").onclick=()=>{newPoster=null;$("#a-prev").hidden=true;$("#a-poster-x").hidden=true};
+$("#a-fill").onclick=async()=>{
+  const t=$("#a-ru").value.trim(),st=$("#a-fill-status"),btn=$("#a-fill");
+  if(!t){st.textContent="Сначала напишите название.";return}
+  if(!sampleFn)return;
+  btn.disabled=true;st.textContent="Claude вспоминает фильм…";
+  const codes=Object.entries(GENRES).map(([k,v])=>k+" — "+v).join(", ");
+  const yr=$("#a-year").value.trim();
+  const prompt=`Помоги заполнить карточку фильма для приложения, где пара выбирает, что посмотреть. Пользователь ввёл: «${t.slice(0,120)}»${yr?`, год ${yr.slice(0,4)}`:""}.
+Верни только JSON-объект такого вида:
+{"found":true,"ru":"название в русском прокате","orig":"оригинальное название","year":2010,"min":148,"r":8.8,"g":["sf","ac"],"dir":"режиссёр по-русски","cast":"2–3 главных актёра по-русски через запятую (для мультфильма — пустая строка)","d":"1–2 предложения о сюжете без спойлеров, по-русски, до 160 символов"}
+r — рейтинг IMDb, каким ты его знаешь, с одним знаком после точки. min — длительность в минутах. g — от 1 до 3 кодов жанров из списка: ${codes}.
+Если не знаешь такого фильма или не уверен, какой фильм имеется в виду, верни {"found":false}.`;
+  try{
+    const j=await sampleFn.json(prompt);
+    if(!j||j.found===false||!j.ru){st.textContent="Claude не узнал этот фильм. Заполните поля вручную.";return}
+    $("#a-ru").value=String(j.ru).slice(0,120);
+    if(j.orig)$("#a-orig").value=String(j.orig).slice(0,120);
+    if(Number(j.year))$("#a-year").value=Math.round(Number(j.year));
+    if(Number(j.min))$("#a-min").value=Math.round(Number(j.min));
+    if(Number(j.r))$("#a-r").value=Number(j.r).toFixed(1);
+    if(Array.isArray(j.g)){aGenres=j.g.filter(g=>GENRES[g]).slice(0,3);renderAGenres()}
+    if(j.d)$("#a-d").value=String(j.d).slice(0,300);
+    if(typeof j.dir==="string")$("#a-dir").value=j.dir.slice(0,80);
+    if(typeof j.cast==="string")$("#a-cast").value=j.cast.slice(0,160);
+    const u=imdbUrl({orig:$("#a-orig").value,ru:$("#a-ru").value,year:$("#a-year").value});
+    st.innerHTML=`Готово. Рейтинг Claude указал по памяти — <a href="${esc(u)}" target="_blank" rel="noopener">проверить на IMDb ↗</a>`;
+  }catch(e){
+    const c=e&&e.code;
+    if(["not_granted","sampling_disabled","not_declared","capability_disabled","capability_removed"].includes(c)){sampleFn=null;btn.hidden=true;st.textContent="Автозаполнение недоступно — заполните поля вручную."}
+    else if(c==="rate_limited")st.textContent="Слишком много запросов. Попробуйте через минуту.";
+    else st.textContent="Не получилось. Попробуйте ещё раз или заполните поля вручную.";
+  }finally{btn.disabled=false}
+};
+$("#add-form").addEventListener("submit",async e=>{
+  e.preventDefault();
+  const err=$("#a-err");err.hidden=true;
+  const fail=m=>{err.textContent=m;err.hidden=false};
+  const ru=$("#a-ru").value.trim(),orig=$("#a-orig").value.trim(),d=$("#a-d").value.trim(),dir=$("#a-dir").value.trim(),cast=$("#a-cast").value.trim();
+  const year=Number($("#a-year").value),min=Number($("#a-min").value),r=Number(String($("#a-r").value).replace(",","."));
+  if(!ru)return fail("Напишите название фильма.");
+  if(!(year>=1890&&year<=2100))return fail("Укажите год выпуска.");
+  if(!(min>=1&&min<=600))return fail("Укажите длительность в минутах.");
+  if(!(r>0&&r<=10))return fail("Укажите рейтинг IMDb, например 7.8.");
+  if(r<7)return fail(`В приложении только фильмы с рейтингом IMDb от 7, а у этого ${fmtR(r)}.`);
+  if(!aGenres.length)return fail("Выберите хотя бы один жанр.");
+  const same=x=>x[0].toLowerCase()===ru.toLowerCase()&&x[2]===Math.round(year);
+  const ri=RAW_FILMS.findIndex(same);
+  if(ri>=0)return fail(HIDDEN.has(String(ri))?"Этот фильм вы уже убрали из приложения.":"Этот фильм уже есть в колоде.");
+  if(customFilms.some(f=>f.ru.toLowerCase()===ru.toLowerCase()&&f.year===Math.round(year)))return fail("Этот фильм уже добавлен.");
+  const id="c-"+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+  const data={ru,orig,year:Math.round(year),min:Math.round(min),r:Math.round(r*10)/10,g:aGenres,d,dir,cast,by:uid,t:Date.now()};
+  if(newPoster)data.poster=newPoster;
+  const btn=$("#a-submit");btn.disabled=true;
+  try{
+    await customCol.doc(id).set(data);
+    me.likes.add(id);history.push({id,kind:"like"});save();
+    $("#add-form").reset();aGenres=[];newPoster=null;$("#a-prev").hidden=true;$("#a-poster-x").hidden=true;$("#a-fill-status").textContent="";renderAGenres();
+    toast(`Добавили «${ru}». Он уже в ваших лайках`);
+  }catch(e2){fail(e2&&e2.code==="quota_exceeded"?"Место для фильмов закончилось. Удалите что-нибудь из добавленных.":"Не получилось сохранить. Попробуйте ещё раз.")}
+  finally{btn.disabled=false}
+});
+
+// ---------- tabs ----------
+function tab(name){
+  ["swipe","match","filter","add"].forEach(n=>{$("#v-"+n).hidden=n!==name;$("#t-"+n).setAttribute("aria-selected",String(n===name))});
+  if(name==="match")renderMatches();if(name==="filter")renderFilters();if(name==="add")renderAdd();
+}
+$("#t-swipe").onclick=()=>tab("swipe");$("#t-match").onclick=()=>tab("match");$("#t-filter").onclick=()=>tab("filter");$("#t-add").onclick=()=>tab("add");
+$("#b-like").onclick=()=>swipeTop("like");$("#b-nope").onclick=()=>swipeTop("nope");$("#b-undo").onclick=undo;
+$("#b-random").onclick=()=>{seed=(Math.random()*1e9)|0;order=makeOrder(seed);deck=[];buildDeck();renderDeck();toast("Перемешали колоду")};
+document.addEventListener("keydown",e=>{if($("#v-swipe").hidden||!$("#overlay").hidden||!$("#sheet").hidden||e.target.closest("input,textarea,select"))return;
+  if(e.key==="ArrowRight"){e.preventDefault();swipeTop("like")}else if(e.key==="ArrowLeft"){e.preventDefault();swipeTop("nope")}else if(e.key==="ArrowUp"){e.preventDefault();const c=$("#deck .card.top");if(c&&deck.length)flySeen(c,deck[0])}else if((e.key==="z"&&(e.metaKey||e.ctrlKey))||e.key==="Backspace"){undo()}});
+document.addEventListener("keydown",e=>{if(e.key==="Escape"){$("#overlay").hidden=true;if(!$("#sheet").hidden)closeSheet()}});
+
+// ---------- status ----------
+async function renderStatus(){
+  const st=$("#status");
+  if(mode==="connecting"){st.innerHTML=`<span class="dot"></span>Подключаемся…`;return}
+  if(mode==="local"){st.innerHTML=`<span class="dot"></span>Только это устройство`;return}
+  const ids=Object.keys(others);
+  if(!ids.length){st.innerHTML=`<span class="dot on"></span>Ждём второго:<br>поделитесь ссылкой`;return}
+  const n=ids.reduce((a,i)=>a+others[i].size,0);
+  st.innerHTML=`<span class="with">${avaImg("sm")}<span>Вместе с <b>${P.with}</b><br>у ${P.pron} ${n} ♥</span></span>`;
+}
+
+function goLocal(reason){
+  if(mode==="local")return;mode="local";
+  renderStatus();renderMatchCount();
+  if(reason==="no-write")toast("Нет доступа к общей базе — переключились на обмен кодами (вкладка «Мэтчи»)");
+  if(!$("#v-match").hidden)renderMatches();
+}
+
+// ---------- connect ----------
+async function connect(){
+  if(!window.claude||typeof window.claude.use!=="function"){goLocal();return}
+  window.claude.use("sample").then(s=>{sampleFn=s||null;if(!$("#v-add").hidden)renderAdd()}).catch(()=>{});
+  let db,user;
+  try{[db,user]=await Promise.all([window.claude.use("db"),window.claude.use("user")])}catch(e){}
+  if(user){try{if(!(await user.isOwner()))P=PEOPLE.b}catch(e){}}
+  if(!db||!user){goLocal();return}
+  userCap=user;
+  try{uid=await user.id()}catch(e){}
+  if(!uid){goLocal();return}
+  dbRef=db.doc("swipes/"+uid);
+  try{
+    const s=await dbRef.get();
+    if(s.exists){const d=s.data()||{};(d.likes||[]).forEach(x=>me.likes.add(String(x)));(d.nopes||[]).forEach(x=>me.nopes.add(String(x)));
+      me.likes.forEach(x=>me.nopes.delete(x));}
+  }catch(e){goLocal();return}
+  mode="shared";dbAll=db;
+  LS.set("likes",[...me.likes]);LS.set("nopes",[...me.nopes]);
+  if(me.likes.size||me.nopes.size){dirty=true;flush()}
+  watchedCol=db.collection("watched");
+  watchedCol.onSnapshot(snap=>{
+    watched=new Set(snap.docs.filter(d=>d.exists).map(d=>d.id));LS.set("watched",[...watched]);
+    buildDeck();renderDeck();renderMatchCount();
+    if(!$("#v-match").hidden)renderMatches();if(!$("#v-filter").hidden)renderFilters();
+  },()=>{});
+  customCol=db.collection("custom");
+  customCol.onSnapshot(snap=>{
+    applyCustom(snap.docs.filter(d=>d.exists).map(d=>normCustom(d.id,d.data())).filter(Boolean));
+    buildDeck();renderDeck();renderMatchCount();
+    if(!$("#v-add").hidden)renderAdd();if(!$("#v-match").hidden)renderMatches();
+  },()=>{});
+  let firstSnap=true;
+  db.collection("swipes").onSnapshot(snap=>{
+    const before=partnerLikes();
+    const next={};snap.docs.forEach(d=>{if(d.id!==uid&&d.exists){const b=d.data()||{};next[d.id]=new Set((b.likes||[]).map(String))}});
+    others=next;
+    const after=partnerLikes();
+    // новые мэтчи, которые случились из-за свайпов партнёра
+    const fresh=[...me.likes].filter(id=>after.has(id)&&!before.has(id)&&!seenMatches.has(id));
+    buildDeck();renderDeck();renderMatchCount();renderStatus();
+    if(!$("#v-match").hidden)renderMatches();
+    if(firstSnap){firstSnap=false;matches().forEach(f=>seenMatches.add(f.id));LS.set("seen",[...seenMatches])}
+    else if(fresh.length&&$("#overlay").hidden)celebrate(fresh);
+  },err=>{toast("Связь с общей базой прервалась — обновите страницу")});
+  renderStatus();buildDeck();renderDeck();renderMatchCount();
+}
+
+buildDeck();renderDeck();renderMatchCount();renderStatus();
+// первые мэтчи по коду в локальном режиме не празднуем повторно
+matches().forEach(f=>seenMatches.add(f.id));
+connect();
+})();
+</script>
